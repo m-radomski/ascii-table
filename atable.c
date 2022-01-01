@@ -12,6 +12,9 @@ typedef unsigned long long u64;
 #define STDIN_FD 0
 #define STDOUT_FD 1
 
+#define TRUE 1
+#define FALSE 0
+
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
 typedef struct Cell
@@ -26,6 +29,7 @@ typedef struct Cell
 char input[BUFFER_SIZE];
 char output[BUFFER_SIZE];
 int column_max_cell_length[MAX_COLS];
+int max_columns_in_row;
 Cell cells[MAX_CELLS];
 u32 cell_number;
 
@@ -94,6 +98,22 @@ static int is_whitespace(char c)
     return c == ' ' || (c >= 0x09 && c <= 0x0d);
 }
 
+static int is_separator_string(char *str, int length)
+{
+    int only_separator_chars = TRUE;
+
+    for(int i = 0; i < length; i++)
+    {
+        if(str[i] != '-' && str[i] != '+')
+        {
+            only_separator_chars = FALSE;
+            break;
+        }
+    }
+
+    return only_separator_chars;
+}
+
 static void fill_cells(char *buffer, u64 n)
 {
     int row = 0;
@@ -146,18 +166,25 @@ static void fill_cells(char *buffer, u64 n)
                 line += cell->length;
                 line_length -= cell->length;
 
-                while(is_whitespace(cell->data[0]) && cell->length > 0)
+                while(cell->length > 0 && is_whitespace(cell->data[0]))
                 {
                     cell->data++;
                     cell->length--;
                 }
 
-                while(is_whitespace(cell->data[cell->length - 1]) && cell->length > 0)
+                while(cell->length > 0 && is_whitespace(cell->data[cell->length - 1]))
                 {
                     cell->length--;
                 }
 
-                column_max_cell_length[col] = MAX(column_max_cell_length[col], cell->length);
+                int only_separator_chars = is_separator_string(cell->data, cell->length);
+                if(!only_separator_chars)
+                {
+                    column_max_cell_length[col] = MAX(column_max_cell_length[col], cell->length);
+                }
+
+                col += 1;
+                max_columns_in_row = MAX(col, max_columns_in_row);
 
                 if(line_length == 0)
                 {
@@ -169,8 +196,6 @@ static void fill_cells(char *buffer, u64 n)
                     line++;
                     line_length--;
                 }
-
-                col += 1;
             }
 
             row += 1;
@@ -182,34 +207,112 @@ static int print_cells_to_buffer(char *buffer)
 {
     int written = 0;
 
-    for(int i = 0; i < cell_number; i++)
+    int cell_head = 0;
+    for(;;)
     {
-        Cell *cell = &cells[i];
-        if(cell->col == 0)
+        int moved = 0;
+
+        Cell *cell = &cells[cell_head];
+        int is_separator = TRUE;
+
+        if(cell_head > 0)
         {
-            if(cell->row != 0)
+            // is previous row
+            Cell *prev = &cells[cell_head - 1];
+            is_separator &= prev->row == cell->row-1;
+        }
+
+        if(cell_head + 1 < cell_number)
+        {
+            // is next row
+            Cell *next = &cells[cell_head + 1];
+            is_separator &= next->row == cell->row+1;
+        }
+
+        if(is_separator)
+        {
+            int only_separator_chars = is_separator_string(cell->data, cell->length);
+
+            if(only_separator_chars)
             {
-                buffer[written++] = '\n';
+                if(cell->row != 0)
+                {
+                    buffer[written++] = '\n';
+                }
+
+                buffer[written++] = '|';
+
+                for(int i = 0; i < max_columns_in_row; i++)
+                {
+                    for(int m = 0; m < column_max_cell_length[i]+2; m++)
+                    {
+                        buffer[written++] = '-';
+                    }
+
+                    buffer[written++] = '+';
+                }
+
+                // Last char is not a plus, but a pipe
+                buffer[written-1] = '|';
+
+                moved += 1;
             }
-
-            buffer[written++] = '|';
         }
-
-        buffer[written++] = ' ';
-
-        int padding = column_max_cell_length[cell->col] - cell->length;
-        for(int m = 0; m < padding; m++)
+        else
         {
-            buffer[written++] = ' ';
+            for(int i = 0; i < max_columns_in_row; i++)
+            {
+                Cell *cell = &cells[cell_head + i];
+
+                if(cell->col == i)
+                {
+                    moved += 1;
+                    if(cell->col == 0)
+                    {
+                        if(cell->row != 0)
+                        {
+                            buffer[written++] = '\n';
+                        }
+
+                        buffer[written++] = '|';
+                    }
+
+                    buffer[written++] = ' ';
+
+                    int padding = column_max_cell_length[cell->col] - cell->length;
+                    for(int m = 0; m < padding; m++)
+                    {
+                        buffer[written++] = ' ';
+                    }
+
+                    for(int k = 0; k < cell->length; k++)
+                    {
+                        buffer[written++] = cell->data[k];
+                    }
+
+                    buffer[written++] = ' ';
+                    buffer[written++] = '|';
+                }
+                else
+                {
+                    // Plus 2 for padding on left and right
+                    int padding = column_max_cell_length[i] + 2;
+
+                    for(int m = 0; m < padding; m++)
+                    {
+                        buffer[written++] = ' ';
+                    }
+                    buffer[written++] = '|';
+                }
+            }
         }
 
-        for(int k = 0; k < cell->length; k++)
+        cell_head += moved;
+
+        if(cell_head == cell_number)
         {
-            buffer[written++] = cell->data[k];
+            break;
         }
-
-        buffer[written++] = ' ';
-        buffer[written++] = '|';
     }
 
     buffer[written++] = '\n';

@@ -29,7 +29,7 @@ int column_max_cell_length[MAX_COLS];
 Cell cells[MAX_CELLS];
 u32 cell_number;
 
-__attribute__((naked)) void exit(int code)
+extern void die(int code)
 {
     asm volatile (
         "mov $60,%%rax;"
@@ -41,7 +41,7 @@ __attribute__((naked)) void exit(int code)
         );
 }
 
-i64 read(int file_descriptor, void *buffer, u64 n)
+extern i64 read(int file_descriptor, void *buffer, u64 n)
 {
     i64 bytes_read = 0;
 
@@ -60,7 +60,7 @@ i64 read(int file_descriptor, void *buffer, u64 n)
     return bytes_read;
 }
 
-i64 write(int file_descriptor, void *buffer, u64 n)
+extern i64 write(int file_descriptor, void *buffer, u64 n)
 {
     i64 bytes_written = 0;
 
@@ -79,12 +79,22 @@ i64 write(int file_descriptor, void *buffer, u64 n)
     return bytes_written;
 }
 
-int is_whitespace(char c)
+extern void *memset(void *s, int c, unsigned long n)
+{
+    unsigned char *sbyte = (unsigned char *)s;
+    for(int i = 0; i < n; i++) {
+        sbyte[i] = (unsigned char)c;
+    }
+
+    return s;
+}
+
+static int is_whitespace(char c)
 {
     return c == ' ' || (c >= 0x09 && c <= 0x0d);
 }
 
-void fill_cells(char *buffer, u64 n)
+static void fill_cells(char *buffer, u64 n)
 {
     int row = 0;
     char *line = 0x0;
@@ -168,7 +178,7 @@ void fill_cells(char *buffer, u64 n)
     }
 }
 
-int print_cells_to_buffer(char *buffer)
+static int print_cells_to_buffer(char *buffer)
 {
     int written = 0;
 
@@ -215,5 +225,5 @@ void _start()
     int to_write = print_cells_to_buffer(output);
 
     write(STDOUT_FD, output, to_write);
-    exit(0);
+    die(0);
 }

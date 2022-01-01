@@ -1,3 +1,3 @@
 #!/bin/sh
 
-gcc atable.c -o atable -nodefaultlibs -nostdlib
+gcc atable.c -o atable -nodefaultlibs -nostdlib -O2

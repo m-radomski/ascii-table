@@ -31,7 +31,8 @@ u32 cell_number;
 
 __attribute__((naked)) void exit(int code)
 {
-    asm("mov $60,%%rax;"
+    asm volatile (
+        "mov $60,%%rax;"
         "mov %[rcode],%%edi;"
         "syscall"
         :
@@ -44,7 +45,8 @@ i64 read(int file_descriptor, void *buffer, u64 n)
 {
     i64 bytes_read = 0;
 
-    asm("mov $0,%%rax;"
+    asm volatile (
+        "mov $0,%%rax;"
         "mov %[fd],%%edi;"
         "mov %[buffer],%%rsi;"
         "mov %[n],%%rdx;"
@@ -62,7 +64,8 @@ i64 write(int file_descriptor, void *buffer, u64 n)
 {
     i64 bytes_written = 0;
 
-    asm("mov $1,%%rax;"
+    asm volatile (
+        "mov $1,%%rax;"
         "mov %[fd],%%edi;"
         "mov %[buffer],%%rsi;"
         "mov %[n],%%rdx;"
@@ -212,5 +215,5 @@ void _start()
     int to_write = print_cells_to_buffer(output);
 
     write(STDOUT_FD, output, to_write);
-    exit(res);
+    exit(0);
 }
